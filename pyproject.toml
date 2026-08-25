@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "offprint"
+version = "0.1.0"
+description = "Extract the article from a URL or a whole site. Emits structured JSON."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "Eugen Mihailescu", email = "eugen.mihailescu@protonmail.com" }]
+keywords = ["article", "extraction", "html", "cli", "jsonl"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.12",
+  "Environment :: Console",
+]
+dependencies = [
+  "httpx>=0.27",
+  "feedparser>=6.0.11",
+  "lxml>=5.0",
+  "trafilatura>=1.12,<3",
+  "pydantic>=2.8",
+  "nh3>=0.2.18",
+  "protego>=0.3",
+  "charset-normalizer>=3.0",
+]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.48"]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24",
+  "respx>=0.21",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+offprint = "offprint.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/eugenmihailescu/offprint"
+Repository = "https://github.com/eugenmihailescu/offprint"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/docs",
+  "/README.md",
+  "/LICENSE",
+  "/SECURITY.md",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["docs", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/offprint/model.py" = ["N815"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["offprint"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = ["-m", "not live"]
+testpaths = ["tests"]
+markers = [
+  "live: tests that hit the public network (skipped in default CI)",
+]
