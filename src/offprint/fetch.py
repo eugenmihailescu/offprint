@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.message import EmailMessage
@@ -60,6 +60,7 @@ class FetchResult:
     body: bytes
     redirects: tuple[str, ...]
     fetched_at: datetime
+    content_length: int | None = None
 
 
 async def _strip_cookie_header(request: httpx.Request) -> None:
@@ -98,15 +99,60 @@ class FetchClient:
             verify=True,
         )
 
-    async def get(self, url: str, *, hop_ok: HopCheck | None = None) -> FetchResult:
+    async def get(
+        self,
+        url: str,
+        *,
+        hop_ok: HopCheck | None = None,
+        max_bytes: int | None = None,
+        timeout: float | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> FetchResult:
+        return await self.request(
+            url,
+            method="GET",
+            hop_ok=hop_ok,
+            max_bytes=max_bytes,
+            timeout=timeout,
+            headers=headers,
+            read_body=True,
+        )
+
+    async def head(
+        self,
+        url: str,
+        *,
+        hop_ok: HopCheck | None = None,
+        timeout: float | None = None,
+    ) -> FetchResult:
+        return await self.request(
+            url,
+            method="HEAD",
+            hop_ok=hop_ok,
+            timeout=timeout,
+            read_body=False,
+        )
+
+    async def request(
+        self,
+        url: str,
+        *,
+        method: str = "GET",
+        hop_ok: HopCheck | None = None,
+        max_bytes: int | None = None,
+        timeout: float | None = None,
+        headers: Mapping[str, str] | None = None,
+        read_body: bool = True,
+    ) -> FetchResult:
         requested = url.strip()
         current = requested
         redirects: list[str] = []
+        cap = self._max_bytes if max_bytes is None else max(1, max_bytes)
         for _ in range(self._max_redirects + 1):
             await assert_public_http_url(current)
             if hop_ok is not None:
                 await hop_ok(current)
-            response = await self._send(current)
+            response = await self._send(current, method=method, headers=headers, timeout=timeout)
             try:
                 if response.has_redirect_location:
                     location = response.headers.get("Location")
@@ -123,25 +169,40 @@ class FetchClient:
                         status_code=response.status_code,
                         url=current,
                     )
-                body = await _read_capped(response, self._max_bytes, url=current)
+                status = response.status_code
+                content_type = response.headers.get("Content-Type")
+                header_length = _content_length(response.headers, b"")
+                body = await _read_capped(response, cap, url=current) if read_body else b""
             finally:
                 await response.aclose()
             return FetchResult(
                 requested_url=requested,
                 final_url=current,
-                status=response.status_code,
-                content_type=response.headers.get("Content-Type"),
+                status=status,
+                content_type=content_type,
                 body=body,
                 redirects=tuple(redirects),
                 fetched_at=datetime.now(UTC),
+                content_length=header_length if header_length is not None else (len(body) or None),
             )
         raise FetchError("too many redirects", url=requested)
 
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def _send(self, url: str) -> httpx.Response:
-        request = self._client.build_request("GET", url)
+    async def _send(
+        self,
+        url: str,
+        *,
+        method: str = "GET",
+        headers: Mapping[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> httpx.Response:
+        build_kwargs: dict[str, Any] = {}
+        if timeout is not None:
+            t = min(max(timeout, 0.001), TIMEOUT_HARD_CAP_SEC)
+            build_kwargs["timeout"] = httpx.Timeout(connect=t, read=t, write=t, pool=t)
+        request = self._client.build_request(method, url, headers=headers, **build_kwargs)
         try:
             return await self._client.send(request, stream=True)
         except httpx.TimeoutException as exc:
@@ -153,7 +214,8 @@ class FetchClient:
 async def _read_capped(response: httpx.Response, max_bytes: int, *, url: str) -> bytes:
     encoding = (response.headers.get("Content-Encoding") or "identity").lower()
     content_length = response.headers.get("Content-Length")
-    if content_length and encoding in ("", "identity"):
+    partial = bool(response.headers.get("Content-Range"))
+    if content_length and encoding in ("", "identity") and not partial:
         try:
             declared = int(content_length)
         except ValueError:
@@ -171,6 +233,20 @@ async def _read_capped(response: httpx.Response, max_bytes: int, *, url: str) ->
     except httpx.HTTPError as exc:
         raise FetchError(str(exc) or "network error", url=url) from exc
     return bytes(buf)
+
+
+def _content_length(headers: httpx.Headers, body: bytes) -> int | None:
+    cr = headers.get("Content-Range")
+    if cr and "/" in cr:
+        total = cr.rsplit("/", 1)[-1].strip()
+        if total.isdigit():
+            return int(total)
+    cl = headers.get("Content-Length")
+    if cl and cl.isdigit():
+        return int(cl)
+    if body:
+        return len(body)
+    return None
 
 
 def decode_body(body: bytes, content_type: str | None) -> str:

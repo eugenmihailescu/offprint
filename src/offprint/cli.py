@@ -120,6 +120,11 @@ def _parser() -> argparse.ArgumentParser:
     site.add_argument("--max-urls", type=int, default=DEFAULT_MAX_URLS)
     site.add_argument("--include-path", action="append", default=None)
     site.add_argument("--exclude-path", action="append", default=None)
+    site.add_argument(
+        "--resume",
+        action="store_true",
+        help="skip canonical keys already in state.json; append JSONL",
+    )
     site.add_argument("--overwrite", action="store_true")
     site.add_argument("--no-crawl", action="store_true")
     _add_shared(site)
@@ -148,8 +153,17 @@ def _add_shared(parser: argparse.ArgumentParser) -> None:
         help="never use Playwright",
     )
     parser.add_argument("--min-text-chars", type=int, default=DEFAULT_MIN_TEXT_CHARS)
-    parser.add_argument("--probe-media", action="store_true")
-    parser.add_argument("--download-media", type=Path, default=None)
+    parser.add_argument(
+        "--probe-media",
+        action="store_true",
+        help="HEAD (GET-range fallback) to fill media mimeType/byteSize",
+    )
+    parser.add_argument(
+        "--download-media",
+        type=Path,
+        default=None,
+        help="write media bytes as {sha256}.{ext} under DIR (20 MiB cap)",
+    )
     parser.add_argument("-v", action="count", default=0, dest="verbose")
     parser.add_argument("-q", "--quiet", action="store_true")
     parser.add_argument("--log-format", choices=("text", "json"), default="text")
@@ -223,6 +237,7 @@ def _cmd_site(ns: argparse.Namespace) -> int:
         max_urls=ns.max_urls,
         include_paths=tuple(ns.include_path or ()),
         exclude_paths=tuple(ns.exclude_path or ()),
+        resume=ns.resume,
         overwrite=ns.overwrite,
         no_crawl=ns.no_crawl,
         urls_file=ns.urls_file,

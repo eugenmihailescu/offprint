@@ -21,6 +21,49 @@ def test_site_existing_out_requires_overwrite(tmp_path: Path) -> None:
     assert main(["--origin", "https://example.com", "--out", str(dest)]) == 2
 
 
+def test_cli_resume_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake(options):
+        seen["options"] = options
+        return _ok_manifest()
+
+    monkeypatch.setattr("offprint.cli.extract_site", fake)
+    code = main(
+        [
+            "site",
+            "--origin",
+            "https://example.com",
+            "--out",
+            "c.jsonl",
+            "--resume",
+        ]
+    )
+    assert code == 0
+    opts = seen["options"]
+    assert isinstance(opts, SiteOptions)
+    assert opts.resume is True
+
+
+def test_cli_resume_and_overwrite_conflict(tmp_path: Path) -> None:
+    dest = tmp_path / "corpus.jsonl"
+    dest.write_text("x\n", encoding="utf-8")
+    assert (
+        main(
+            [
+                "site",
+                "--origin",
+                "https://example.com",
+                "--out",
+                str(dest),
+                "--resume",
+                "--overwrite",
+            ]
+        )
+        == 2
+    )
+
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_extract_site_urls_file(public_dns: None, tmp_path: Path) -> None:
