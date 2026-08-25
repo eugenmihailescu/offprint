@@ -1,7 +1,8 @@
-"""Shared HTTP session: one client + robots cache (+ optional browser later)."""
+"""Shared HTTP session: one client + robots cache + optional Playwright browser."""
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -16,6 +17,7 @@ class RunSession:
     client: FetchClient
     robots: RobotsCache
     browser: object | None = field(default=None)
+    browser_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     async def aclose(self) -> None:
         if self.browser is not None:

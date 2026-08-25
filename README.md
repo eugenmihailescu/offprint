@@ -37,7 +37,18 @@ offprint --version
 offprint --help
 ```
 
-Python 3.12 or newer. Optional SPA fallback: `pip install -e ".[browser]"` (Playwright / Chromium; not required for ordinary blogs).
+Python 3.12 or newer.
+
+Optional SPA fallback (`offprint[browser]`). Chromium is **not** bundled:
+
+```bash
+pip install "offprint[browser] @ git+https://github.com/eugenmihailescu/offprint"
+playwright install chromium
+```
+
+For a local checkout: `pip install -e ".[browser]" && playwright install chromium`.
+
+`--browser` always tries Playwright (exit 2 if the extra is missing). `--no-browser` never does. Omitting both falls back only when the extra is installed and the HTML overlay is empty. With `--browser`, site `--concurrency` defaults to 2 (cap 4). Ordinary blogs do not need this extra.
 
 ## Non-goals (v1)
 
