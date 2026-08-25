@@ -1,0 +1,11 @@
+{
+  "method": "html-article",
+  "title": "Dek versus body",
+  "lang": "en",
+  "authorNames": [],
+  "textContains": ["entry-content", "Linux kernels"],
+  "minHeadings": 0,
+  "imageStems": [],
+  "htmlContains": [],
+  "htmlNotContains": ["Short dek text"]
+}

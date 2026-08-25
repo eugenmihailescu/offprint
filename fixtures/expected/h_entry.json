@@ -1,0 +1,11 @@
+{
+  "method": "html-article",
+  "title": "Mikroformatsinlägg",
+  "lang": "sv",
+  "authorNames": [],
+  "textContains": ["e-content", "Linux"],
+  "minHeadings": 0,
+  "imageStems": [],
+  "htmlContains": [],
+  "htmlNotContains": []
+}

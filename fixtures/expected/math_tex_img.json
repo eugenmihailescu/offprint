@@ -1,0 +1,11 @@
+{
+  "method": "html-article",
+  "title": "",
+  "lang": null,
+  "authorNames": [],
+  "textContains": ["LaTeX plugin"],
+  "minHeadings": 0,
+  "imageStems": ["eq.png"],
+  "htmlContains": ["data-latex", "tex"],
+  "htmlNotContains": []
+}

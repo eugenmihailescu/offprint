@@ -1,0 +1,11 @@
+{
+  "method": "jsonld",
+  "title": "JSON-LD only post",
+  "lang": null,
+  "authorNames": ["Bea"],
+  "textContains": ["JSON-LD articleBody", "no entry-content"],
+  "minHeadings": 0,
+  "imageStems": [],
+  "htmlContains": ["<p>"],
+  "htmlNotContains": []
+}
