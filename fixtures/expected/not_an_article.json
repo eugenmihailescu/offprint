@@ -1,0 +1,7 @@
+{
+  "fixtures": [
+    "spa_empty.html",
+    "category_listing.html",
+    "home_no_links.html"
+  ]
+}

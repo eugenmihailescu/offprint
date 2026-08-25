@@ -1,0 +1,11 @@
+{
+  "method": "html-article",
+  "title": "The FM transmitter",
+  "lang": "en",
+  "authorNames": ["Ada"],
+  "textContains": ["bias network", "quiescent"],
+  "minHeadings": 0,
+  "imageStems": ["foo.jpg"],
+  "htmlContains": [],
+  "htmlNotContains": ["sharedaddy"]
+}

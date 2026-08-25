@@ -1,0 +1,11 @@
+{
+  "method": "html-article",
+  "title": "Demo with video",
+  "lang": "en",
+  "authorNames": [],
+  "textContains": ["YouTube embed", "data table"],
+  "minHeadings": 1,
+  "imageStems": ["scope.png"],
+  "htmlContains": ["<table", "youtube.com/embed"],
+  "htmlNotContains": []
+}

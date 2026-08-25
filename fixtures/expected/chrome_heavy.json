@@ -1,0 +1,11 @@
+{
+  "method": "html-article",
+  "title": "Inside the post",
+  "lang": "en",
+  "authorNames": [],
+  "textContains": ["post-content", "soldering"],
+  "minHeadings": 1,
+  "imageStems": [],
+  "htmlContains": ["Inside the post"],
+  "htmlNotContains": ["Related posts", "<nav", "<footer"]
+}
