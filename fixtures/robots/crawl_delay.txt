@@ -1,0 +1,4 @@
+User-agent: *
+Crawl-delay: 86400
+Request-rate: 1/20
+Disallow:

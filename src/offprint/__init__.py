@@ -4,6 +4,7 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
 
 from offprint.errors import OffprintError
+from offprint.fetch import FetchResult
 from offprint.model import Article, RunManifest
 
 try:
@@ -11,4 +12,4 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0"
 
-__all__ = ["Article", "OffprintError", "RunManifest", "__version__"]
+__all__ = ["Article", "FetchResult", "OffprintError", "RunManifest", "__version__"]
