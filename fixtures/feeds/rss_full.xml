@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Example</title>
+    <item>
+      <link>https://example.com/p/fm</link>
+      <title>From the feed</title>
+      <description>Short summary.</description>
+      <content:encoded><![CDATA[<p>Feed full content is much longer than the summary and includes enough sentences about radio circuits and Linux so Offprint should prefer rss as the body winner when this item is injected for the URL.</p><p>Second feed paragraph.</p>]]></content:encoded>
+    </item>
+  </channel>
+</rss>
