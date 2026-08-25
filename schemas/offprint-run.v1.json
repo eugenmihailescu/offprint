@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/eugenmihailescu/offprint/main/schemas/offprint-run.v1.json",
+  "$defs": {
+    "RunConfig": {
+      "properties": {
+        "concurrency": {
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "delaySec": {
+          "title": "Delaysec",
+          "type": "number"
+        },
+        "ignoreRobots": {
+          "title": "Ignorerobots",
+          "type": "boolean"
+        },
+        "browser": {
+          "enum": [
+            "off",
+            "fallback",
+            "on"
+          ],
+          "title": "Browser",
+          "type": "string"
+        },
+        "maxBytes": {
+          "title": "Maxbytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "concurrency",
+        "delaySec",
+        "ignoreRobots",
+        "browser",
+        "maxBytes"
+      ],
+      "title": "RunConfig",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "RunFailure": {
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "code"
+      ],
+      "title": "RunFailure",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "RunStats": {
+      "properties": {
+        "discovered": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Discovered",
+          "type": "integer"
+        },
+        "queued": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Queued",
+          "type": "integer"
+        },
+        "extracted": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Extracted",
+          "type": "integer"
+        },
+        "skipped": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "failed": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "resumed": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Resumed",
+          "type": "integer"
+        },
+        "notAttempted": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Notattempted",
+          "type": "integer"
+        }
+      },
+      "title": "RunStats",
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "properties": {
+    "kind": {
+      "const": "offprint-run",
+      "default": "offprint-run",
+      "title": "Kind",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "origin": {
+      "maxLength": 2048,
+      "title": "Origin",
+      "type": "string"
+    },
+    "startedAt": {
+      "title": "Startedat",
+      "type": "string"
+    },
+    "finishedAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finishedat"
+    },
+    "outPath": {
+      "title": "Outpath",
+      "type": "string"
+    },
+    "result": {
+      "enum": [
+        "ok",
+        "partial",
+        "empty_queue",
+        "skipped_all",
+        "interrupted"
+      ],
+      "title": "Result",
+      "type": "string"
+    },
+    "stats": {
+      "$ref": "#/$defs/RunStats"
+    },
+    "config": {
+      "$ref": "#/$defs/RunConfig"
+    },
+    "failures": {
+      "items": {
+        "$ref": "#/$defs/RunFailure"
+      },
+      "maxItems": 200,
+      "title": "Failures",
+      "type": "array"
+    },
+    "failuresTruncated": {
+      "default": false,
+      "title": "Failurestruncated",
+      "type": "boolean"
+    },
+    "skippedSample": {
+      "items": {
+        "$ref": "#/$defs/RunFailure"
+      },
+      "maxItems": 50,
+      "title": "Skippedsample",
+      "type": "array"
+    }
+  },
+  "required": [
+    "origin",
+    "startedAt",
+    "outPath",
+    "result",
+    "stats",
+    "config"
+  ],
+  "title": "Offprint Run Manifest",
+  "type": "object",
+  "additionalProperties": true
+}
