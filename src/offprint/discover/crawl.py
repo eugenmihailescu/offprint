@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
+from collections.abc import Callable
 from urllib.parse import urljoin, urlparse
 
 from lxml import html as lhtml
@@ -38,6 +39,7 @@ async def crawl_home(
     exclude_paths: tuple[str, ...] = (),
     max_pages: int = CRAWL_MAX_PAGES,
     max_depth: int = CRAWL_MAX_DEPTH,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> tuple[list[str], bool]:
     """Return (candidate URLs including possibly home, home_was_only_fetch)."""
     start = origin.rstrip("/") + "/"
@@ -76,5 +78,7 @@ async def crawl_home(
                 found.append(href)
             if depth + 1 <= max_depth and href not in seen:
                 queue.append((href, depth + 1))
+        if on_progress is not None:
+            on_progress(fetched_pages, len(found))
     only_home_fetch = fetched_pages == 1 and fetched_only_home
     return list(dict.fromkeys(found)), only_home_fetch

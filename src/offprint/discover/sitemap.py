@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import logging
+from collections.abc import Callable
 
 from lxml import etree
 
@@ -44,7 +45,12 @@ async def fetch_sitemap(client: FetchClient, url: str) -> tuple[str, list[str]]:
     return parse_sitemap_xml(body)
 
 
-async def walk_sitemaps(client: FetchClient, start_urls: list[str]) -> tuple[list[str], list[str]]:
+async def walk_sitemaps(
+    client: FetchClient,
+    start_urls: list[str],
+    *,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> tuple[list[str], list[str]]:
     """Follow sitemapindex children (cap MAX_SITEMAPS). Returns (item_locs, fetched_urls)."""
     fetched: list[str] = []
     items: list[str] = []
@@ -73,4 +79,6 @@ async def walk_sitemaps(client: FetchClient, start_urls: list[str]) -> tuple[lis
                         break
         else:
             items.extend(locs)
+        if on_progress is not None:
+            on_progress(len(fetched), len(items))
     return items, fetched

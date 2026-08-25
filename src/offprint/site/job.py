@@ -35,6 +35,7 @@ from offprint.extract.browser import ensure_browser, require_playwright
 from offprint.extract.feeds_match import FeedItem
 from offprint.model import Article, RunManifest
 from offprint.pipeline import ExtractOptions, extract_url_async
+from offprint.progress import Progress
 from offprint.session import RunSession, open_session
 from offprint.site.manifest import (
     RESULT_EXIT,
@@ -87,6 +88,7 @@ class SiteOptions:
     min_text_chars: int = DEFAULT_MIN_TEXT_CHARS
     probe_media: bool = False
     download_media_dir: Path | None = None
+    progress: bool = False
 
     def capped_concurrency(self) -> int:
         if self.browser:
@@ -192,6 +194,7 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
     skipped_sample: list = []
     queued_skips = 0
     failures_truncated = False
+    prog = Progress(enabled=options.progress)
     try:
         disc = await discover(
             origin,
@@ -202,9 +205,11 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
             no_crawl=options.no_crawl,
             urls_file=options.urls_file,
             apply_deny_list=options.urls_file is None,
+            progress=prog,
         )
         stats.discovered = disc.discovered_count
         stats.queued = len(disc.urls)
+        prog.extract_begin(stats.queued)
         stats.skipped = len(disc.skipped)
         skipped_sample = [new_failure(s.url, s.code) for s in disc.skipped[:50]]
         extract_opts = options.to_extract_options(disc.feed_index, session)
@@ -335,6 +340,14 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
                         stats.queued,
                         stats.resumed,
                     )
+                    prog.extract_tick(
+                        extracted=stats.extracted,
+                        failed=stats.failed,
+                        skipped=queued_skips,
+                        resumed=stats.resumed,
+                        not_attempted=stats.notAttempted,
+                        queued=stats.queued,
+                    )
 
         workers = [asyncio.create_task(worker()) for _ in range(n)]
         writer_task: asyncio.Task | None = None
@@ -352,6 +365,7 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
                 writer_task.cancel()
         await asyncio.gather(*workers, return_exceptions=True)
     finally:
+        prog.close()
         if own:
             await session.aclose()
 
