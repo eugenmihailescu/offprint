@@ -1,0 +1,389 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/eugenmihailescu/offprint/main/schemas/offprint-article.v1.json",
+  "$defs": {
+    "Media": {
+      "properties": {
+        "src": {
+          "maxLength": 4096,
+          "title": "Src",
+          "type": "string"
+        },
+        "alt": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alt"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "mimeType": {
+          "anyOf": [
+            {
+              "maxLength": 127,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mimetype"
+        },
+        "byteSize": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytesize"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height"
+        },
+        "role": {
+          "default": "inline",
+          "enum": [
+            "inline",
+            "feature",
+            "og",
+            "embed"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "src"
+      ],
+      "title": "Media",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "Provenance": {
+      "properties": {
+        "method": {
+          "enum": [
+            "rss",
+            "jsonld",
+            "html-article",
+            "trafilatura",
+            "browser"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "methodChain": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Methodchain",
+          "type": "array"
+        },
+        "fetchedAt": {
+          "title": "Fetchedat",
+          "type": "string"
+        },
+        "finalUrl": {
+          "maxLength": 2048,
+          "title": "Finalurl",
+          "type": "string"
+        },
+        "httpStatus": {
+          "default": 200,
+          "title": "Httpstatus",
+          "type": "integer"
+        },
+        "contentType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contenttype"
+        },
+        "bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytes"
+        },
+        "redirects": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Redirects",
+          "type": "array"
+        },
+        "extractorVersion": {
+          "title": "Extractorversion",
+          "type": "string"
+        },
+        "rawHtmlSha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rawhtmlsha256"
+        },
+        "rawHtmlPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rawhtmlpath"
+        },
+        "robotsIgnored": {
+          "default": false,
+          "title": "Robotsignored",
+          "type": "boolean"
+        },
+        "truncated": {
+          "items": {
+            "enum": [
+              "title",
+              "excerpt",
+              "text",
+              "authorNames",
+              "tags",
+              "categories"
+            ],
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Truncated",
+          "type": "array"
+        }
+      },
+      "required": [
+        "method",
+        "fetchedAt",
+        "finalUrl",
+        "extractorVersion"
+      ],
+      "title": "Provenance",
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "properties": {
+    "kind": {
+      "const": "offprint-article",
+      "default": "offprint-article",
+      "title": "Kind",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "origin": {
+      "description": "Operator origin (scheme://host[:port]). Part of the consumer idempotency key with canonicalUrl.",
+      "maxLength": 2048,
+      "minLength": 8,
+      "title": "Origin",
+      "type": "string"
+    },
+    "canonicalUrl": {
+      "maxLength": 2048,
+      "minLength": 8,
+      "title": "Canonicalurl",
+      "type": "string"
+    },
+    "discoveredUrls": {
+      "items": {
+        "maxLength": 2048,
+        "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Discoveredurls",
+      "type": "array"
+    },
+    "title": {
+      "default": "",
+      "maxLength": 500,
+      "title": "Title",
+      "type": "string"
+    },
+    "publishedAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Publishedat"
+    },
+    "updatedAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updatedat"
+    },
+    "lang": {
+      "anyOf": [
+        {
+          "maxLength": 16,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lang"
+    },
+    "authorNames": {
+      "items": {
+        "maxLength": 200,
+        "type": "string"
+      },
+      "maxItems": 12,
+      "title": "Authornames",
+      "type": "array"
+    },
+    "tags": {
+      "items": {
+        "maxLength": 120,
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Tags",
+      "type": "array"
+    },
+    "categories": {
+      "items": {
+        "maxLength": 120,
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Categories",
+      "type": "array"
+    },
+    "excerpt": {
+      "anyOf": [
+        {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Excerpt"
+    },
+    "html": {
+      "default": "",
+      "maxLength": 5000000,
+      "title": "Html",
+      "type": "string"
+    },
+    "text": {
+      "default": "",
+      "maxLength": 1000000,
+      "title": "Text",
+      "type": "string"
+    },
+    "media": {
+      "items": {
+        "$ref": "#/$defs/Media"
+      },
+      "maxItems": 500,
+      "title": "Media",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    }
+  },
+  "required": [
+    "origin",
+    "canonicalUrl",
+    "provenance"
+  ],
+  "title": "Offprint Article",
+  "type": "object",
+  "additionalProperties": true
+}
