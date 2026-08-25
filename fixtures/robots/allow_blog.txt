@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /blog
+Disallow: /secret
+Crawl-delay: 1

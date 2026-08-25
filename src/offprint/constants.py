@@ -43,7 +43,7 @@ ACCEPT_HEADER = (
     "application/json;q=0.5,application/xml;q=0.9,text/xml;q=0.8,*/*;q=0.1"
 )
 
-TRACKING_QUERY_PARAMS: frozenset[str] = frozenset(
+TRACKING_PARAMS: frozenset[str] = frozenset(
     {
         "utm_source",
         "utm_medium",
@@ -51,17 +51,32 @@ TRACKING_QUERY_PARAMS: frozenset[str] = frozenset(
         "utm_term",
         "utm_content",
         "utm_id",
-        "fbclid",
+        "utm_reader",
         "gclid",
+        "gbraid",
+        "wbraid",
+        "fbclid",
         "gclsrc",
-        "dclid",
-        "msclkid",
         "mc_cid",
         "mc_eid",
+        "igshid",
         "_ga",
         "_gl",
+        "msclkid",
+        "twclid",
+        "yclid",
+        "dclid",
+        "li_fat_id",
+        "wickedid",
+        "ncid",
+        "srsltid",
+        "ref_src",
+        "ref_url",
+        "share",
+        "amp",
     }
 )
+TRACKING_QUERY_PARAMS = TRACKING_PARAMS
 
 
 def default_user_agent(version: str) -> str:
