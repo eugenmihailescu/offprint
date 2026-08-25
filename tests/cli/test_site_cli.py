@@ -5,6 +5,7 @@ import pytest
 import respx
 
 from offprint.cli import main
+from offprint.model import RunConfig, RunManifest, RunStats
 from offprint.site import SiteOptions, extract_site_async
 
 HTML = Path(__file__).resolve().parents[2] / "fixtures" / "html"
@@ -82,3 +83,70 @@ def test_cli_site_overwrite(public_dns: None, tmp_path: Path) -> None:
     assert code == 0
     assert "old" not in dest.read_text(encoding="utf-8")
     assert dest.read_text(encoding="utf-8").strip()
+
+
+def _ok_manifest() -> RunManifest:
+    return RunManifest(
+        origin="https://example.com",
+        startedAt="2026-08-25T12:00:00Z",
+        finishedAt="2026-08-25T12:01:00Z",
+        outPath="corpus.jsonl",
+        result="ok",
+        stats=RunStats(extracted=1, queued=1),
+        config=RunConfig(
+            concurrency=2,
+            delaySec=0.5,
+            ignoreRobots=False,
+            browser="on",
+            maxBytes=10 * 1024 * 1024,
+        ),
+    )
+
+
+def test_cli_browser_missing_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("offprint.extract.browser.playwright_available", lambda: False)
+
+    def boom(options):
+        raise AssertionError("must not run site")
+
+    monkeypatch.setattr("offprint.cli.extract_site", boom)
+    assert (
+        main(
+            [
+                "site",
+                "--origin",
+                "https://example.com",
+                "--out",
+                "c.jsonl",
+                "--browser",
+            ]
+        )
+        == 2
+    )
+
+
+def test_cli_browser_default_concurrency(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("offprint.extract.browser.playwright_available", lambda: True)
+    seen: dict[str, object] = {}
+
+    def fake(options):
+        seen["options"] = options
+        return _ok_manifest()
+
+    monkeypatch.setattr("offprint.cli.extract_site", fake)
+    code = main(
+        [
+            "site",
+            "--origin",
+            "https://example.com",
+            "--out",
+            "c.jsonl",
+            "--browser",
+        ]
+    )
+    assert code == 0
+    opts = seen["options"]
+    assert isinstance(opts, SiteOptions)
+    assert opts.browser is True
+    assert opts.concurrency is None
+    assert opts.capped_concurrency() == 2

@@ -12,7 +12,6 @@ from pathlib import Path
 
 from offprint import __version__
 from offprint.constants import (
-    DEFAULT_CONCURRENCY,
     DEFAULT_CONNECT_TIMEOUT_SEC,
     DEFAULT_DELAY_SEC,
     DEFAULT_MAX_BYTES,
@@ -22,6 +21,7 @@ from offprint.constants import (
     DEFAULT_READ_TIMEOUT_SEC,
 )
 from offprint.errors import OffprintError, UsageError
+from offprint.extract.browser import require_playwright
 from offprint.log import setup_logging
 from offprint.pipeline import ExtractOptions, extract_url
 from offprint.schema import dump_article_schema, dump_run_schema, schema_to_json
@@ -109,7 +109,12 @@ def _parser() -> argparse.ArgumentParser:
     site.add_argument("--origin", default=None)
     site.add_argument("--urls-file", type=Path, default=None)
     site.add_argument("--out-dir", type=Path, default=None)
-    site.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY)
+    site.add_argument(
+        "--concurrency",
+        type=int,
+        default=None,
+        help="in-flight workers (default 4, 2 with --browser)",
+    )
     site.add_argument("--delay", type=float, default=DEFAULT_DELAY_SEC)
     site.add_argument("--limit", type=int, default=None)
     site.add_argument("--max-urls", type=int, default=DEFAULT_MAX_URLS)
@@ -132,8 +137,16 @@ def _add_shared(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--user-agent", default=None)
     parser.add_argument("--save-html", type=Path, default=None)
     browser = parser.add_mutually_exclusive_group()
-    browser.add_argument("--browser", action="store_true")
-    browser.add_argument("--no-browser", action="store_true")
+    browser.add_argument(
+        "--browser",
+        action="store_true",
+        help="always try Playwright (requires offprint[browser])",
+    )
+    browser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="never use Playwright",
+    )
     parser.add_argument("--min-text-chars", type=int, default=DEFAULT_MIN_TEXT_CHARS)
     parser.add_argument("--probe-media", action="store_true")
     parser.add_argument("--download-media", type=Path, default=None)
@@ -197,12 +210,9 @@ def _cmd_site(ns: argparse.Namespace) -> int:
     ua = ns.user_agent or os.environ.get("OFFPRINT_USER_AGENT") or None
     if ua is not None and not str(ua).strip():
         ua = None
-    if ns.browser:
-        browser: bool | None = True
-    elif ns.no_browser:
-        browser = False
-    else:
-        browser = None
+    browser = _browser_flag(ns)
+    if browser is True:
+        require_playwright()
     options = SiteOptions(
         origin=ns.origin or "",
         out_path=Path(ns.out_path),
@@ -236,13 +246,9 @@ def _cmd_extract(ns: argparse.Namespace) -> int:
     ua = ns.user_agent or os.environ.get("OFFPRINT_USER_AGENT") or None
     if ua is not None and not str(ua).strip():
         ua = None
-    browser: bool | None
-    if ns.browser:
-        browser = True
-    elif ns.no_browser:
-        browser = False
-    else:
-        browser = None
+    browser = _browser_flag(ns)
+    if browser is True:
+        require_playwright()
     options = ExtractOptions(
         ignore_robots=ns.ignore_robots,
         timeout=ns.timeout,
@@ -267,3 +273,11 @@ def _cmd_extract(ns: argparse.Namespace) -> int:
     else:
         sys.stdout.write(text)
     return 0
+
+
+def _browser_flag(ns: argparse.Namespace) -> bool | None:
+    if ns.browser:
+        return True
+    if ns.no_browser:
+        return False
+    return None

@@ -129,3 +129,38 @@ def test_extract_error_exit_codes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_extract_missing_url() -> None:
     assert main(["extract"]) == 2
+
+
+def test_extract_browser_missing_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("offprint.extract.browser.playwright_available", lambda: False)
+
+    def boom(url: str, options=None):
+        raise AssertionError("must not extract")
+
+    monkeypatch.setattr("offprint.cli.extract_url", boom)
+    assert main(["extract", "https://example.com/x", "--browser"]) == 2
+
+
+def test_extract_browser_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("offprint.extract.browser.playwright_available", lambda: True)
+    seen: dict[str, object] = {}
+
+    def fake(url: str, options=None):
+        seen["options"] = options
+        return _article()
+
+    monkeypatch.setattr("offprint.cli.extract_url", fake)
+    assert main(["extract", "https://example.com/p/fm", "--browser", "--pretty"]) == 0
+    assert seen["options"].browser is True  # type: ignore[union-attr]
+
+
+def test_extract_no_browser_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake(url: str, options=None):
+        seen["options"] = options
+        return _article()
+
+    monkeypatch.setattr("offprint.cli.extract_url", fake)
+    assert main(["extract", "https://example.com/p/fm", "--no-browser", "--pretty"]) == 0
+    assert seen["options"].browser is False  # type: ignore[union-attr]

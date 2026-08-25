@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,18 +18,22 @@ from offprint.constants import (
     DEFAULT_READ_TIMEOUT_SEC,
     EXCERPT_MAX_CHARS,
     TEXT_MAX_CHARS,
+    TIMEOUT_HARD_CAP_SEC,
     TITLE_MAX_CHARS,
 )
 from offprint.dates import parse_datetime
-from offprint.errors import NotArticleError, SizeError, UsageError
+from offprint.errors import FetchError, NotArticleError, SizeError, UsageError
+from offprint.extract import browser as browser_mod
 from offprint.extract.feeds_match import FeedItem, lookup_feed_item
 from offprint.extract.media import catalog_media
-from offprint.extract.overlay import overlay
+from offprint.extract.overlay import OverlayResult, overlay
 from offprint.extract.sanitize import html_to_text, sanitize
 from offprint.fetch import FetchResult, decode_body
 from offprint.model import Article, Provenance, TruncatedField
 from offprint.session import RunSession, open_session
 from offprint.urls import canonical_key, parse_origin
+
+log = logging.getLogger("offprint.pipeline")
 
 
 @dataclass(frozen=True)
@@ -59,6 +64,8 @@ def extract_url(url: str, options: ExtractOptions | None = None) -> Article:
 
 async def extract_url_async(url: str, options: ExtractOptions | None = None) -> Article:
     opts = options or ExtractOptions()
+    if opts.browser is True:
+        browser_mod.require_playwright()
     own = opts.session is None
     session = opts.session or await open_session(
         ignore_robots=opts.ignore_robots,
@@ -75,28 +82,83 @@ async def extract_url_async(url: str, options: ExtractOptions | None = None) -> 
     try:
         fetched = await session.client.get(url, hop_ok=hop_ok)
         html = decode_body(fetched.body, fetched.content_type)
-        return article_from_fetch(html, fetched, opts)
+        return await _article_from_fetch_async(html, fetched, opts, session)
     finally:
         if own:
             await session.aclose()
 
 
-def article_from_fetch(html: str, fetched: FetchResult, options: ExtractOptions) -> Article:
-    feed = lookup_feed_item(
+def _lookup_feed(fetched: FetchResult, options: ExtractOptions) -> FeedItem | None:
+    return lookup_feed_item(
         fetched.requested_url,
         options.feed_index,
         extra_urls=(fetched.final_url, *fetched.redirects),
     )
-    result = overlay(
+
+
+def _overlay_html(html: str, fetched: FetchResult, options: ExtractOptions) -> OverlayResult | None:
+    return overlay(
         html,
         url=fetched.final_url,
-        feed=feed,
+        feed=_lookup_feed(fetched, options),
         min_text_chars=options.min_text_chars,
     )
-    if result is None:
+
+
+async def _maybe_render(url: str, session: RunSession, options: ExtractOptions) -> str | None:
+    if options.browser is False:
+        return None
+    if not browser_mod.playwright_available():
         if options.browser is True:
-            raise UsageError("Playwright extra is not installed")
+            browser_mod.require_playwright()
+        return None
+    timeout_ms = int(min(max(options.timeout, 0.001), TIMEOUT_HARD_CAP_SEC) * 1000)
+    try:
+        return await browser_mod.render_html(
+            url,
+            session,
+            timeout_ms=timeout_ms,
+            user_agent=session.client.user_agent,
+        )
+    except UsageError:
+        if options.browser is True:
+            raise
+        log.warning("playwright extra/chromium unavailable; skipping browser fallback")
+        return None
+    except FetchError:
+        if options.browser is True:
+            raise
+        log.warning("playwright fallback failed for %s", url)
+        return None
+
+
+async def _article_from_fetch_async(
+    html: str,
+    fetched: FetchResult,
+    options: ExtractOptions,
+    session: RunSession,
+) -> Article:
+    result = _overlay_html(html, fetched, options)
+    if result is None and options.browser is not False:
+        rendered = await _maybe_render(fetched.final_url, session, options)
+        if rendered is not None:
+            result = _overlay_html(rendered, fetched, options)
+            if result is not None:
+                result.method_chain = list(dict.fromkeys([*result.method_chain, "browser"]))
+    if result is None:
         raise NotArticleError("page is not an article", url=fetched.final_url)
+    return _emit_article(result, fetched, options)
+
+
+def article_from_fetch(html: str, fetched: FetchResult, options: ExtractOptions) -> Article:
+    """Sync overlay path used by quality tests. Does not launch Playwright."""
+    result = _overlay_html(html, fetched, options)
+    if result is None:
+        raise NotArticleError("page is not an article", url=fetched.final_url)
+    return _emit_article(result, fetched, options)
+
+
+def _emit_article(result: OverlayResult, fetched: FetchResult, options: ExtractOptions) -> Article:
     if len(result.html) > ARTICLE_HTML_MAX_CHARS:
         raise SizeError("article html exceeds cap", url=fetched.final_url)
 

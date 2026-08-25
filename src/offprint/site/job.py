@@ -30,6 +30,7 @@ from offprint.errors import (
     RobotsDeniedError,
     UsageError,
 )
+from offprint.extract.browser import ensure_browser, require_playwright
 from offprint.extract.feeds_match import FeedItem
 from offprint.model import Article, RunManifest
 from offprint.pipeline import ExtractOptions, extract_url_async
@@ -57,7 +58,7 @@ class SiteOptions:
     origin: str
     out_path: Path
     out_dir: Path | None = None
-    concurrency: int = DEFAULT_CONCURRENCY
+    concurrency: int | None = None
     delay: float = DEFAULT_DELAY_SEC
     limit: int | None = None
     max_urls: int = DEFAULT_MAX_URLS
@@ -80,9 +81,9 @@ class SiteOptions:
 
     def capped_concurrency(self) -> int:
         if self.browser:
-            cap = BROWSER_CONCURRENCY_HARD_CAP
-            return min(max(1, self.concurrency or DEFAULT_BROWSER_CONCURRENCY), cap)
-        n = self.concurrency if self.concurrency else DEFAULT_CONCURRENCY
+            n = DEFAULT_BROWSER_CONCURRENCY if self.concurrency is None else self.concurrency
+            return min(max(1, n), BROWSER_CONCURRENCY_HARD_CAP)
+        n = DEFAULT_CONCURRENCY if self.concurrency is None else self.concurrency
         return min(max(1, n), CONCURRENCY_HARD_CAP)
 
     def to_extract_options(
@@ -165,6 +166,9 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
         max_redirects=options.max_redirects,
         user_agent=options.user_agent,
     )
+    if options.browser is True:
+        require_playwright()
+        await ensure_browser(session)
     interrupted = False
     stats = empty_stats()
     failures: list = []
