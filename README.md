@@ -6,10 +6,17 @@ Offprint is a CLI and library. It fetches a public page (or discovers a site via
 
 ```text
 offprint https://old.blog/2020/foo/
+offprint extract https://old.blog/2020/foo/ --out article.json --pretty
 offprint --origin https://old.blog --out corpus.jsonl
 ```
 
-The invocations above are the target UX. This scaffold only prints help and `--version`. Extract and site modes land in later PRs.
+Single-URL extract writes `offprint-article` JSON to stdout (or `--out`). `--save-html DIR` stores the raw fetch as `{sha256}.html` and records the path on `provenance`. Site-wide JSONL (`--origin`) is not in this release yet.
+
+```bash
+offprint schema              # offprint-article JSON Schema
+offprint schema --run        # offprint-run manifest schema
+python -m offprint URL
+```
 
 ## Install
 
