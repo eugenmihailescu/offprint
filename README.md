@@ -16,12 +16,15 @@ Site mode discovers posts from sitemaps and RSS/Atom, then writes JSONL plus `{o
 
 `--probe-media` fills `media[].mimeType` / `byteSize` via HEAD (GET `Range` fallback, 5s, SSRF). `--download-media DIR` writes `{sha256}.{ext}` after a successful extract (20 MiB cap, same SSRF policy). Default **off**. Probe/download failures are warnings, not article failures.
 
+`--progress` (site mode, stderr, default off) prints discovery counts (indeterminate) then extract `n/N` with elapsed time and an ETA. The ETA uses only URLs that were actually fetched (resume skips and `--limit` leftovers are excluded from the rate). `-q` turns it off.
+
 ```bash
 offprint schema              # offprint-article JSON Schema
 offprint schema --run        # offprint-run manifest schema
 python -m offprint URL
 offprint --origin https://old.blog --out corpus.jsonl --overwrite --delay 0.5
 offprint --origin https://old.blog --out corpus.jsonl --resume
+offprint --origin https://old.blog --out corpus.jsonl --overwrite --progress
 offprint extract URL --probe-media --download-media ./media
 ```
 

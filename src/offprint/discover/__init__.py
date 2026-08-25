@@ -16,6 +16,7 @@ from offprint.discover.sitemap import walk_sitemaps
 from offprint.errors import HttpError, OffprintError, UsageError
 from offprint.extract.feeds_match import FeedItem
 from offprint.fetch import FetchClient, decode_body
+from offprint.progress import Progress
 from offprint.session import RunSession
 from offprint.urls import canonical_key, parse_origin, same_site_family, www_apex_twin
 
@@ -100,13 +101,26 @@ async def discover(
     no_crawl: bool = False,
     urls_file: Path | None = None,
     apply_deny_list: bool = True,
+    progress: Progress | None = None,
 ) -> Discovery:
     origin = parse_origin(origin)
     client = session.client
     await session.robots.allow(origin + "/", client.user_agent)
 
+    def note(
+        phase: str,
+        *,
+        sitemaps: int = 0,
+        feeds: int = 0,
+        locs: int = 0,
+        pages: int | None = None,
+    ) -> None:
+        if progress is not None:
+            progress.discover(phase, sitemaps=sitemaps, feeds=feeds, locs=locs, pages=pages)
+
     if urls_file is not None:
         listed = read_urls_file(urls_file, max_urls=max_urls)
+        note("urls-file", locs=len(listed))
         return _classify(
             origin,
             listed,
@@ -126,7 +140,13 @@ async def discover(
         sitemap_starts.extend(urljoin(twin + "/", p.lstrip("/")) for p in WELL_KNOWN_SITEMAPS)
     sitemap_starts.extend(session.robots.sitemap_urls(origin + "/"))
 
-    item_locs, fetched_sitemaps = await walk_sitemaps(client, sitemap_starts)
+    note("sitemaps")
+    item_locs, fetched_sitemaps = await walk_sitemaps(
+        client,
+        sitemap_starts,
+        on_progress=lambda s, loc: note("sitemaps", sitemaps=s, locs=loc),
+    )
+    note("sitemaps", sitemaps=len(fetched_sitemaps), locs=len(item_locs))
 
     feed_starts = [
         urljoin(origin + "/", p.lstrip("/")) if p.startswith("/") else urljoin(origin, p)
@@ -160,6 +180,12 @@ async def discover(
                 feed_index[key] = item
             if same_site_family(item.link, origin):
                 feed_links.append(item.link)
+        note(
+            "feeds",
+            sitemaps=len(fetched_sitemaps),
+            feeds=len(feeds_fetched),
+            locs=len(item_locs) + len(feed_links),
+        )
 
     family_locs = [
         u
@@ -182,11 +208,24 @@ async def discover(
     if disc.urls or feed_links or no_crawl:
         return disc
 
+    note(
+        "crawl",
+        sitemaps=len(fetched_sitemaps),
+        feeds=len(feeds_fetched),
+        locs=len(family_locs),
+    )
     crawled, only_home_fetch = await crawl_home(
         client,
         origin,
         include_paths=include_paths,
         exclude_paths=exclude_paths,
+        on_progress=lambda pages, found: note(
+            "crawl",
+            sitemaps=len(fetched_sitemaps),
+            feeds=len(feeds_fetched),
+            locs=found,
+            pages=pages,
+        ),
     )
     family_locs = [
         u

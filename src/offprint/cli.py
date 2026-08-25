@@ -127,6 +127,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     site.add_argument("--overwrite", action="store_true")
     site.add_argument("--no-crawl", action="store_true")
+    site.add_argument(
+        "--progress",
+        action="store_true",
+        help="stderr progress: discovery counts, then extract n/N and ETA",
+    )
     _add_shared(site)
     return parser
 
@@ -252,6 +257,7 @@ def _cmd_site(ns: argparse.Namespace) -> int:
         min_text_chars=ns.min_text_chars,
         probe_media=ns.probe_media,
         download_media_dir=ns.download_media,
+        progress=bool(ns.progress) and not ns.quiet,
     )
     manifest = extract_site(options)
     return site_exit_code(manifest)
