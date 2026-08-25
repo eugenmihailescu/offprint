@@ -7,6 +7,7 @@ from offprint.errors import OffprintError
 from offprint.fetch import FetchResult
 from offprint.model import Article, RunManifest
 from offprint.pipeline import ExtractOptions, extract_url, extract_url_async
+from offprint.site import SiteOptions, extract_site, extract_site_async
 
 try:
     __version__ = pkg_version("offprint")
@@ -19,6 +20,9 @@ __all__ = [
     "FetchResult",
     "OffprintError",
     "RunManifest",
+    "SiteOptions",
+    "extract_site",
+    "extract_site_async",
     "extract_url",
     "extract_url_async",
     "__version__",

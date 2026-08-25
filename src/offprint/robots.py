@@ -62,6 +62,13 @@ class RobotsCache:
                 interval = max(interval, seconds / float(rate.requests))
         return interval
 
+    def sitemap_urls(self, url: str) -> list[str]:
+        origin = _robots_origin(url)
+        robot = self._cache.get(origin)
+        if robot is None:
+            return []
+        return [str(s).strip() for s in robot.sitemaps if str(s).strip()]
+
     def clamp_interval(self, interval: float) -> float:
         if interval > ROBOTS_DELAY_CLAMP_SEC:
             log.warning(

@@ -127,9 +127,5 @@ def test_extract_error_exit_codes(monkeypatch: pytest.MonkeyPatch) -> None:
     assert main(["extract", "https://example.com/x"]) == 7
 
 
-def test_site_not_implemented() -> None:
-    assert main(["--origin", "https://old.blog", "--out", "corpus.jsonl"]) == 2
-
-
 def test_extract_missing_url() -> None:
     assert main(["extract"]) == 2

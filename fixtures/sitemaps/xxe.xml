@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>&xxe;</loc></url>
+  <url><loc>https://example.com/safe-post</loc></url>
+</urlset>
