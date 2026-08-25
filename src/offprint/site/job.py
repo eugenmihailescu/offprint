@@ -25,6 +25,7 @@ from offprint.constants import (
 )
 from offprint.discover import discover, read_urls_file
 from offprint.errors import (
+    FetchError,
     NotArticleError,
     OffprintError,
     RobotsDeniedError,
@@ -44,7 +45,14 @@ from offprint.site.manifest import (
     utc_now,
     write_manifest,
 )
-from offprint.urls import parse_origin, same_site_family
+from offprint.site.resume import (
+    ResumeState,
+    article_keys,
+    load_state,
+    state_path,
+    write_state,
+)
+from offprint.urls import canonical_key, parse_origin, same_site_family
 
 log = logging.getLogger("offprint.site")
 
@@ -64,6 +72,7 @@ class SiteOptions:
     max_urls: int = DEFAULT_MAX_URLS
     include_paths: tuple[str, ...] = ()
     exclude_paths: tuple[str, ...] = ()
+    resume: bool = False
     overwrite: bool = False
     no_crawl: bool = False
     urls_file: Path | None = None
@@ -146,8 +155,10 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
     if options.urls_file is None and not origin:
         raise UsageError("site mode requires --origin or --urls-file")
     out_path = options.out_path
-    if out_path.exists() and not options.overwrite:
-        raise UsageError(f"--out already exists (pass --overwrite): {out_path}")
+    if options.resume and options.overwrite:
+        raise UsageError("use either --resume or --overwrite, not both")
+    if out_path.exists() and not options.overwrite and not options.resume:
+        raise UsageError(f"--out already exists (pass --overwrite or --resume): {out_path}")
     if options.urls_file is not None and not origin:
         listed = read_urls_file(options.urls_file, max_urls=options.max_urls)
         if not listed:
@@ -156,6 +167,12 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
     options = replace(options, origin=origin)
 
     out_dir = options.out_dir or out_path.parent
+    state_file = state_path(out_dir)
+    if options.resume:
+        resume_state = load_state(state_file)
+    else:
+        resume_state = ResumeState()
+        write_state(state_file, resume_state)
     started = utc_now()
     own = True
     session = await open_session(
@@ -195,6 +212,8 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
         pace = _Pace(options.delay, session)
         url_q: asyncio.Queue[str | None] = asyncio.Queue()
         result_q: asyncio.Queue[tuple] = asyncio.Queue()
+        gate = asyncio.Lock()
+        in_flight: set[str] = set()
         for url in disc.urls:
             url_q.put_nowait(url)
         for _ in range(n):
@@ -206,41 +225,67 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
             while True:
                 url = await url_q.get()
                 try:
+                    key: str | None = None
                     if url is None:
                         return
                     if limit is not None and extracted_holder["n"] >= limit:
-                        await result_q.put(("not_attempted", url, None))
+                        await result_q.put(("not_attempted", url, None, None))
                         continue
+                    try:
+                        key = canonical_key(url)
+                    except UsageError as exc:
+                        await result_q.put(("fail", url, exc, None))
+                        continue
+                    async with gate:
+                        if key in resume_state.done:
+                            await result_q.put(("resume", url, None, None))
+                            continue
+                        if key in in_flight:
+                            await result_q.put(("skip", url, "duplicate", None))
+                            continue
+                        in_flight.add(key)
                     await pace.wait(url)
                     try:
                         article = await extract_url_async(url, extract_opts)
                     except RobotsDeniedError as exc:
-                        await result_q.put(("skip", url, exc))
+                        await result_q.put(("skip", url, exc, key))
                         continue
                     except NotArticleError as exc:
-                        await result_q.put(("skip", url, exc))
+                        await result_q.put(("skip", url, exc, key))
                         continue
                     except OffprintError as exc:
-                        await result_q.put(("fail", url, exc))
+                        await result_q.put(("fail", url, exc, key))
                         continue
                     if not same_site_family(article.provenance.finalUrl, origin):
-                        await result_q.put(("skip", url, "off_origin"))
+                        await result_q.put(("skip", url, "off_origin", key))
                         continue
                     extracted_holder["n"] += 1
-                    await result_q.put(("ok", article, None))
+                    await result_q.put(("ok", article, url, key))
+                except Exception as exc:
+                    log.exception("worker failed for %s", url)
+                    await result_q.put(
+                        (
+                            "fail",
+                            url,
+                            FetchError(str(exc) or "worker error", url=url),
+                            key,
+                        )
+                    )
                 finally:
                     url_q.task_done()
 
         async def writer() -> None:
             nonlocal queued_skips, failures_truncated
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            with out_path.open("w", encoding="utf-8") as fh:
+            mode = "a" if options.resume else "w"
+            with out_path.open(mode, encoding="utf-8") as fh:
                 pending = stats.queued
                 while pending > 0:
-                    kind, payload, extra = await result_q.get()
+                    kind, payload, extra, key = await result_q.get()
                     pending -= 1
                     if kind == "ok":
                         article: Article = payload
+                        requested = extra if isinstance(extra, str) else article.canonicalUrl
                         fh.write(
                             json.dumps(
                                 article.model_dump(mode="json", exclude_none=False),
@@ -249,34 +294,46 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
                             + "\n"
                         )
                         fh.flush()
+                        async with gate:
+                            resume_state.done.update(article_keys(article, requested))
+                            if key:
+                                in_flight.discard(key)
+                            write_state(state_file, resume_state)
                         stats.extracted += 1
-                    elif kind == "skip":
-                        code = extra.code if isinstance(extra, OffprintError) else str(extra)
-                        queued_skips += 1
-                        stats.skipped += 1
-                        if len(skipped_sample) < 50:
-                            skipped_sample.append(
-                                new_failure(
-                                    payload,
-                                    code,
-                                    getattr(extra, "message", "") or "",
+                    else:
+                        if key:
+                            async with gate:
+                                in_flight.discard(key)
+                        if kind == "resume":
+                            stats.resumed += 1
+                        elif kind == "skip":
+                            code = extra.code if isinstance(extra, OffprintError) else str(extra)
+                            queued_skips += 1
+                            stats.skipped += 1
+                            if len(skipped_sample) < 50:
+                                skipped_sample.append(
+                                    new_failure(
+                                        payload,
+                                        code,
+                                        getattr(extra, "message", "") or "",
+                                    )
                                 )
-                            )
-                    elif kind == "not_attempted":
-                        stats.notAttempted += 1
-                    elif kind == "fail":
-                        stats.failed += 1
-                        err: OffprintError = extra
-                        if len(failures) < 200:
-                            failures.append(new_failure(payload, err.code, err.message))
-                        else:
-                            failures_truncated = True
+                        elif kind == "not_attempted":
+                            stats.notAttempted += 1
+                        elif kind == "fail":
+                            stats.failed += 1
+                            err: OffprintError = extra
+                            if len(failures) < 200:
+                                failures.append(new_failure(payload, err.code, err.message))
+                            else:
+                                failures_truncated = True
                     log.info(
-                        "extracted=%s failed=%s skipped=%s queued=%s",
+                        "extracted=%s failed=%s skipped=%s queued=%s resumed=%s",
                         stats.extracted,
                         stats.failed,
                         stats.skipped,
                         stats.queued,
+                        stats.resumed,
                     )
 
         workers = [asyncio.create_task(worker()) for _ in range(n)]

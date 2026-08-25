@@ -25,7 +25,7 @@ from offprint.dates import parse_datetime
 from offprint.errors import FetchError, NotArticleError, SizeError, UsageError
 from offprint.extract import browser as browser_mod
 from offprint.extract.feeds_match import FeedItem, lookup_feed_item
-from offprint.extract.media import catalog_media
+from offprint.extract.media import catalog_media, enrich_media
 from offprint.extract.overlay import OverlayResult, overlay
 from offprint.extract.sanitize import html_to_text, sanitize
 from offprint.fetch import FetchResult, decode_body
@@ -147,7 +147,15 @@ async def _article_from_fetch_async(
                 result.method_chain = list(dict.fromkeys([*result.method_chain, "browser"]))
     if result is None:
         raise NotArticleError("page is not an article", url=fetched.final_url)
-    return _emit_article(result, fetched, options)
+    article = _emit_article(result, fetched, options)
+    if options.probe_media or options.download_media_dir is not None:
+        await enrich_media(
+            article.media,
+            session.client,
+            probe=options.probe_media,
+            download_dir=options.download_media_dir,
+        )
+    return article
 
 
 def article_from_fetch(html: str, fetched: FetchResult, options: ExtractOptions) -> Article:
