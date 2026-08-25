@@ -10,12 +10,15 @@ offprint extract https://old.blog/2020/foo/ --out article.json --pretty
 offprint --origin https://old.blog --out corpus.jsonl
 ```
 
-Single-URL extract writes `offprint-article` JSON to stdout (or `--out`). `--save-html DIR` stores the raw fetch as `{sha256}.html` and records the path on `provenance`. Site-wide JSONL (`--origin`) is not in this release yet.
+Single-URL extract writes `offprint-article` JSON to stdout (or `--out`). `--save-html DIR` stores the raw fetch as `{sha256}.html` and records the path on `provenance`.
+
+Site mode discovers posts from sitemaps and RSS/Atom, then writes JSONL plus `{out-dir}/manifest.json`. If `--out` already exists, pass `--overwrite`. Default delay is 0.5s per host (polite); robots.txt crawl-delay is respected and clamped at 10s.
 
 ```bash
 offprint schema              # offprint-article JSON Schema
 offprint schema --run        # offprint-run manifest schema
 python -m offprint URL
+offprint --origin https://old.blog --out corpus.jsonl --overwrite --delay 0.5
 ```
 
 ## Install

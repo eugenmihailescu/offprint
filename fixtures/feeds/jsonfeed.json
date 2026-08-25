@@ -1,0 +1,16 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Example",
+  "feed_url": "https://example.com/feed.json",
+  "items": [
+    {
+      "id": "https://example.com/json-post",
+      "url": "https://example.com/json-post",
+      "title": "JSON Feed item",
+      "content_html": "<p>JSON Feed body with enough text that it could be used as an article overlay when the matching URL is extracted by Offprint later on.</p>",
+      "date_published": "2020-01-02T00:00:00Z",
+      "authors": [{"name": "Ada"}],
+      "tags": ["json"]
+    }
+  ]
+}

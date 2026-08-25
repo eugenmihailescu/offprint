@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example</title>
+  <entry>
+    <title>Excerpt only</title>
+    <link href="https://example.com/excerpt-post"/>
+    <id>https://example.com/excerpt-post</id>
+    <summary>Just a dek.</summary>
+  </entry>
+</feed>

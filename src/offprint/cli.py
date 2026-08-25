@@ -12,9 +12,12 @@ from pathlib import Path
 
 from offprint import __version__
 from offprint.constants import (
+    DEFAULT_CONCURRENCY,
     DEFAULT_CONNECT_TIMEOUT_SEC,
+    DEFAULT_DELAY_SEC,
     DEFAULT_MAX_BYTES,
     DEFAULT_MAX_REDIRECTS,
+    DEFAULT_MAX_URLS,
     DEFAULT_MIN_TEXT_CHARS,
     DEFAULT_READ_TIMEOUT_SEC,
 )
@@ -22,6 +25,7 @@ from offprint.errors import OffprintError, UsageError
 from offprint.log import setup_logging
 from offprint.pipeline import ExtractOptions, extract_url
 from offprint.schema import dump_article_schema, dump_run_schema, schema_to_json
+from offprint.site import SiteOptions, extract_site, site_exit_code
 
 log = logging.getLogger("offprint")
 
@@ -101,9 +105,18 @@ def _parser() -> argparse.ArgumentParser:
         help="emit offprint-run schema instead of offprint-article",
     )
 
-    site = sub.add_parser("site", help="extract a whole origin (not in this release)")
+    site = sub.add_parser("site", help="extract a whole origin to JSONL")
     site.add_argument("--origin", default=None)
-    site.add_argument("--urls-file", default=None)
+    site.add_argument("--urls-file", type=Path, default=None)
+    site.add_argument("--out-dir", type=Path, default=None)
+    site.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY)
+    site.add_argument("--delay", type=float, default=DEFAULT_DELAY_SEC)
+    site.add_argument("--limit", type=int, default=None)
+    site.add_argument("--max-urls", type=int, default=DEFAULT_MAX_URLS)
+    site.add_argument("--include-path", action="append", default=None)
+    site.add_argument("--exclude-path", action="append", default=None)
+    site.add_argument("--overwrite", action="store_true")
+    site.add_argument("--no-crawl", action="store_true")
     _add_shared(site)
     return parser
 
@@ -158,7 +171,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if ns.cmd == "schema":
             return _cmd_schema(ns)
         if ns.cmd == "site":
-            raise UsageError("site mode is not implemented yet")
+            return _cmd_site(ns)
         if ns.cmd == "extract":
             return _cmd_extract(ns)
         parser.print_usage(sys.stderr)
@@ -174,6 +187,49 @@ def _cmd_schema(ns: argparse.Namespace) -> int:
     schema = dump_run_schema() if ns.run else dump_article_schema()
     sys.stdout.write(schema_to_json(schema))
     return 0
+
+
+def _cmd_site(ns: argparse.Namespace) -> int:
+    if not ns.out_path:
+        raise UsageError("site mode requires --out PATH")
+    if not ns.origin and ns.urls_file is None:
+        raise UsageError("site mode requires --origin or --urls-file")
+    ua = ns.user_agent or os.environ.get("OFFPRINT_USER_AGENT") or None
+    if ua is not None and not str(ua).strip():
+        ua = None
+    if ns.browser:
+        browser: bool | None = True
+    elif ns.no_browser:
+        browser = False
+    else:
+        browser = None
+    options = SiteOptions(
+        origin=ns.origin or "",
+        out_path=Path(ns.out_path),
+        out_dir=ns.out_dir,
+        concurrency=ns.concurrency,
+        delay=ns.delay,
+        limit=ns.limit,
+        max_urls=ns.max_urls,
+        include_paths=tuple(ns.include_path or ()),
+        exclude_paths=tuple(ns.exclude_path or ()),
+        overwrite=ns.overwrite,
+        no_crawl=ns.no_crawl,
+        urls_file=ns.urls_file,
+        ignore_robots=ns.ignore_robots,
+        timeout=ns.timeout,
+        connect_timeout=ns.connect_timeout,
+        max_bytes=ns.max_bytes,
+        max_redirects=ns.max_redirects,
+        user_agent=ua,
+        save_html_dir=ns.save_html,
+        browser=browser,
+        min_text_chars=ns.min_text_chars,
+        probe_media=ns.probe_media,
+        download_media_dir=ns.download_media,
+    )
+    manifest = extract_site(options)
+    return site_exit_code(manifest)
 
 
 def _cmd_extract(ns: argparse.Namespace) -> int:
