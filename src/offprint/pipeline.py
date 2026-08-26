@@ -29,7 +29,7 @@ from offprint.errors import FetchError, NotArticleError, SchemaError, SizeError,
 from offprint.extract import browser as browser_mod
 from offprint.extract.feeds_match import FeedItem, lookup_feed_item
 from offprint.extract.media import catalog_media, enrich_media
-from offprint.extract.overlay import OverlayResult, overlay
+from offprint.extract.overlay import OverlayResult, is_soft_404_title, overlay
 from offprint.extract.sanitize import html_to_text, sanitize
 from offprint.fetch import FetchResult, decode_body
 from offprint.model import Article, Provenance, TruncatedField
@@ -142,12 +142,16 @@ async def _article_from_fetch_async(
     session: RunSession,
 ) -> Article:
     result = _overlay_html(html, fetched, options)
+    if result is not None and is_soft_404_title(result.meta.title):
+        raise NotArticleError("page is not an article", url=fetched.final_url)
     if result is None and options.browser is not False:
         rendered = await _maybe_render(fetched.final_url, session, options)
         if rendered is not None:
             result = _overlay_html(rendered, fetched, options)
             if result is not None:
                 result.method_chain = list(dict.fromkeys([*result.method_chain, "browser"]))
+                if is_soft_404_title(result.meta.title):
+                    raise NotArticleError("page is not an article", url=fetched.final_url)
     if result is None:
         raise NotArticleError("page is not an article", url=fetched.final_url)
     article = _emit_article(result, fetched, options)
@@ -164,7 +168,7 @@ async def _article_from_fetch_async(
 def article_from_fetch(html: str, fetched: FetchResult, options: ExtractOptions) -> Article:
     """Sync overlay path used by quality tests. Does not launch Playwright."""
     result = _overlay_html(html, fetched, options)
-    if result is None:
+    if result is None or is_soft_404_title(result.meta.title):
         raise NotArticleError("page is not an article", url=fetched.final_url)
     return _emit_article(result, fetched, options)
 

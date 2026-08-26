@@ -7,7 +7,10 @@ import re
 from urllib.parse import parse_qs, urlparse
 
 _PAGE = re.compile(r"/page(s)?/\d+$")
-_ASSET = re.compile(r"\.(?:jpe?g|png|gif|webp|svg|mp4|mp3|pdf|zip)(?:$|\?)", re.I)
+_ASSET = re.compile(
+    r"\.(?:jpe?g|png|gif|webp|svg|avif|heic|heif|bmp|ico|mp4|mp3|pdf|zip)(?:$|\?)",
+    re.I,
+)
 DENY_PREFIXES = (
     "/tag/",
     "/tags/",
@@ -27,6 +30,10 @@ DENY_PREFIXES = (
     "/feed",
     "/feed/",
     "/cdn-cgi/",
+    "/products/",
+    "/product/",
+    "/collections/",
+    "/collection/",
 )
 
 
