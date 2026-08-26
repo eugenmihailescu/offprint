@@ -12,7 +12,7 @@ offprint --origin https://old.blog --out corpus.jsonl
 
 Single-URL extract writes `offprint-article` JSON to stdout (or `--out`). `--save-html DIR` stores the raw fetch as `{sha256}.html` and records the path on `provenance`.
 
-Site mode discovers posts from sitemaps and RSS/Atom, then writes JSONL plus `{out-dir}/manifest.json` and `{out-dir}/state.json` (canonical keys). If `--out` already exists, pass `--overwrite` or `--resume` (append JSONL, skip keys already in `state.json`). `--retry-failed` is not v1; failed URLs are not in `state.json`, so `--resume` will try them again. Default delay is 0.5s per host (polite); robots.txt crawl-delay is respected and clamped at 10s.
+Site mode discovers posts from sitemaps and RSS/Atom, then writes JSONL plus `{out-dir}/manifest.json` and `{out-dir}/state.json` (canonical keys). If `--out` already exists, pass `--overwrite` or `--resume` (append JSONL, skip keys already in `state.json`). `--retry-failed` is not v1; failed URLs are not in `state.json`, so `--resume` will try them again. Default delay is 0.5s per host (polite); robots.txt crawl-delay is respected and clamped at 10s. Shopify `/products/` and `/collections/` are skipped; use `--include-path '/blogs/*'` for the journal. Give each origin its own `--out-dir` so `state.json` is not shared.
 
 `--probe-media` fills `media[].mimeType` / `byteSize` via HEAD (GET `Range` fallback, 5s, SSRF). `--download-media DIR` writes `{sha256}.{ext}` after a successful extract (20 MiB cap, same SSRF policy). Default **off**. Probe/download failures are warnings, not article failures.
 

@@ -30,3 +30,26 @@ def test_searching_not_denied() -> None:
 def test_blog_page_2_queued() -> None:
     assert should_queue("https://example.com/blog/page/2")
     assert not should_queue("https://example.com/page/2")
+
+
+def test_shopify_products_and_collections_skipped() -> None:
+    assert not should_queue("https://shop.example/products/wax-beads")
+    assert not should_queue("https://shop.example/collections/mens")
+    assert not should_queue("https://shop.example/collection/all")
+    assert should_queue("https://shop.example/blogs/journal/our-story")
+    assert should_queue("https://shop.example/pages/about")
+    assert should_queue(
+        "https://shop.example/products/wax-beads",
+        include_paths=("/products/*",),
+    )
+
+
+def test_production_not_denied_as_products() -> None:
+    assert should_queue("https://example.com/production/notes")
+
+
+def test_heic_and_avif_assets_skipped() -> None:
+    assert not should_queue("https://example.com/wp-content/uploads/2024/foo.heic")
+    assert not should_queue("https://example.com/img/hero.avif")
+    assert not should_queue("https://example.com/a.jpg")
+    assert should_queue("https://example.com/2024/04/things-to-do-in-valparaiso")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from offprint.constants import DEFAULT_MIN_TEXT_CHARS
@@ -28,6 +29,24 @@ class OverlayResult:
     method: Method
     method_chain: list[str] = field(default_factory=list)
     meta: Meta = field(default_factory=Meta)
+
+
+_SOFT_404_TITLE = re.compile(r"\s+[-|]\s+")
+
+
+def is_soft_404_title(title: str | None) -> bool:
+    """True for CMS 404 templates (HTTP 200). Do not match essays that mention 404."""
+    if not title:
+        return False
+    head = " ".join(title.strip().lower().split())
+    head = _SOFT_404_TITLE.split(head, maxsplit=1)[0].strip()
+    return head in {
+        "404",
+        "404 not found",
+        "error 404",
+        "not found",
+        "page not found",
+    }
 
 
 def is_listing(html: str, text: str) -> bool:

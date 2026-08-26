@@ -9,7 +9,7 @@ import pytest
 
 from offprint.errors import NotArticleError
 from offprint.extract.feeds_match import FeedItem
-from offprint.extract.overlay import overlay
+from offprint.extract.overlay import is_soft_404_title, overlay
 from offprint.fetch import FetchResult
 from offprint.pipeline import ExtractOptions, article_from_fetch
 from offprint.urls import canonical_key
@@ -86,6 +86,20 @@ def test_math_tex_survives() -> None:
 def test_leftover_shortcode_not_expanded() -> None:
     art = _article("leftover_shortcode.html")
     assert "[gallery" in art.html or "[gallery" in art.text
+
+
+def test_soft_404_title_rejected() -> None:
+    assert is_soft_404_title("Page not found")
+    assert is_soft_404_title("Page Not Found - Bold and Determined")
+    assert is_soft_404_title("404 Not Found")
+    assert not is_soft_404_title("How I recovered from a 404 on launch day")
+    body = (
+        "<html><head><title>Page not found</title></head><body><article><p>"
+        + ("word " * 80)
+        + "</p></article></body></html>"
+    )
+    with pytest.raises(NotArticleError):
+        article_from_fetch(body, _fetch(body), ExtractOptions())
 
 
 def test_category_listing_rejected() -> None:
