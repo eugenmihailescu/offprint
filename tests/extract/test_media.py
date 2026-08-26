@@ -3,17 +3,49 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 import pytest
 import respx
 
-from offprint.extract.media import guess_media_ext
-from offprint.pipeline import ExtractOptions, extract_url_async
+from offprint.extract.media import catalog_media, guess_media_ext
+from offprint.fetch import FetchResult
+from offprint.pipeline import ExtractOptions, article_from_fetch, extract_url_async
 
 HTML = Path(__file__).resolve().parents[2] / "fixtures" / "html"
 JPG = b"\xff\xd8\xff\xd9" + b"jpeg-bytes"
+
+
+def test_catalog_clips_long_alt() -> None:
+    alt = "x" * 1500
+    html = f'<img src="https://example.com/a.jpg" alt="{alt}">'
+    items = catalog_media(html, extra=[], base_url="https://example.com/")
+    assert len(items) == 1
+    assert items[0].alt is not None
+    assert len(items[0].alt) == 1000
+
+
+def test_article_caps_media_at_500() -> None:
+    imgs = "".join(f'<img src="/m/{i}.jpg" alt="shot">' for i in range(520))
+    body = (
+        "<html><body><div class='entry-content'><p>"
+        + ("word " * 80)
+        + f"</p>{imgs}</div></body></html>"
+    )
+    fetched = FetchResult(
+        requested_url="https://example.com/grid",
+        final_url="https://example.com/grid",
+        status=200,
+        content_type="text/html",
+        body=body.encode("utf-8"),
+        redirects=(),
+        fetched_at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC),
+    )
+    art = article_from_fetch(body, fetched, ExtractOptions())
+    assert len(art.media) == 500
+    assert "media" in art.provenance.truncated
 
 
 def test_guess_media_ext() -> None:

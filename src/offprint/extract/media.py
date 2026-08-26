@@ -10,10 +10,12 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 from offprint.constants import (
+    MEDIA_ALT_MAX_CHARS,
     MEDIA_DOWNLOAD_MAX_BYTES,
     MEDIA_PROBE_MAX_BYTES,
     MEDIA_PROBE_TIMEOUT_SEC,
     MEDIA_SRC_MAX_LENGTH,
+    MEDIA_TITLE_MAX_CHARS,
 )
 from offprint.errors import BlockedUrlError, OffprintError
 from offprint.extract.htmlutil import parse_html
@@ -66,7 +68,14 @@ def catalog_media(html: str, *, extra: list[str], base_url: str) -> list[Media]:
             return
         seen.add(key)
         items.append(
-            Media(src=abs_src, alt=alt, title=title, width=width, height=height, role=role)
+            Media(
+                src=abs_src,
+                alt=_clip_str(alt, MEDIA_ALT_MAX_CHARS),
+                title=_clip_str(title, MEDIA_TITLE_MAX_CHARS),
+                width=width,
+                height=height,
+                role=role,
+            )
         )
 
     for img in tree.xpath("//img[@src]"):
@@ -94,6 +103,14 @@ def catalog_media(html: str, *, extra: list[str], base_url: str) -> list[Media]:
                 item.role = "feature"
                 break
     return items
+
+
+def _clip_str(value: str | None, limit: int) -> str | None:
+    if value is None:
+        return None
+    if len(value) <= limit:
+        return value
+    return value[:limit]
 
 
 def _mime(content_type: str | None) -> str | None:

@@ -112,13 +112,17 @@ class Progress:
         )
         self._emit(line, force=force or remaining == 0)
 
-    def close(self) -> None:
-        if not self.enabled or not self._dirty:
+    def break_line(self) -> None:
+        """Finish the current TTY line so a log record does not smash it."""
+        if not self.enabled or not self.tty or not self._dirty:
             return
-        if self.tty:
-            self.stream.write("\n")
-            self.stream.flush()
+        self.stream.write("\n")
+        self.stream.flush()
         self._dirty = False
+        self._last_width = 0
+
+    def close(self) -> None:
+        self.break_line()
 
     def _emit(self, line: str, *, force: bool) -> None:
         now = self._now()
