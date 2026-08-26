@@ -96,3 +96,13 @@ def test_progress_tty_rewrites_one_line() -> None:
     assert out.startswith("\r")
     assert out.endswith("\n")
     assert out.count("\n") == 1
+
+
+def test_progress_break_line_before_log() -> None:
+    buf = StringIO()
+    prog = Progress(enabled=True, stream=buf, tty=True, min_interval=0.0)
+    prog.discover("sitemaps", sitemaps=1, locs=1)
+    prog.break_line()
+    buf.write("ERROR boom\n")
+    out = buf.getvalue()
+    assert "\nERROR boom\n" in out

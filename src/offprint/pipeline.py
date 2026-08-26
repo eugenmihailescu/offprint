@@ -9,6 +9,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from offprint.constants import (
     ARTICLE_HTML_MAX_CHARS,
     DEFAULT_CONNECT_TIMEOUT_SEC,
@@ -17,12 +19,13 @@ from offprint.constants import (
     DEFAULT_MIN_TEXT_CHARS,
     DEFAULT_READ_TIMEOUT_SEC,
     EXCERPT_MAX_CHARS,
+    MEDIA_MAX_ITEMS,
     TEXT_MAX_CHARS,
     TIMEOUT_HARD_CAP_SEC,
     TITLE_MAX_CHARS,
 )
 from offprint.dates import parse_datetime
-from offprint.errors import FetchError, NotArticleError, SizeError, UsageError
+from offprint.errors import FetchError, NotArticleError, SchemaError, SizeError, UsageError
 from offprint.extract import browser as browser_mod
 from offprint.extract.feeds_match import FeedItem, lookup_feed_item
 from offprint.extract.media import catalog_media, enrich_media
@@ -198,6 +201,9 @@ def _emit_article(result: OverlayResult, fetched: FetchResult, options: ExtractO
         version = "0.0.0"
 
     media = catalog_media(clean, extra=result.meta.images, base_url=fetched.final_url)
+    if len(media) > MEDIA_MAX_ITEMS:
+        truncated.append("media")
+        media = media[:MEDIA_MAX_ITEMS]
     authors = result.meta.author_names[:12]
     tags = result.meta.tags[:64]
     categories = result.meta.categories[:32]
@@ -208,37 +214,40 @@ def _emit_article(result: OverlayResult, fetched: FetchResult, options: ExtractO
     if len(result.meta.categories) > 32:
         truncated.append("categories")
 
-    return Article(
-        origin=origin,
-        canonicalUrl=canonical,
-        discoveredUrls=discovered[:50],
-        title=title or "",
-        publishedAt=parse_datetime(result.meta.published_at),
-        updatedAt=parse_datetime(result.meta.updated_at),
-        lang=result.meta.lang,
-        authorNames=authors,
-        tags=tags,
-        categories=categories,
-        excerpt=excerpt,
-        html=clean,
-        text=text,
-        media=media,
-        provenance=Provenance(
-            method=result.method,
-            methodChain=result.method_chain,
-            fetchedAt=fetched.fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            finalUrl=fetched.final_url,
-            httpStatus=fetched.status,
-            contentType=fetched.content_type,
-            bytes=len(fetched.body),
-            redirects=list(fetched.redirects),
-            extractorVersion=f"offprint/{version}",
-            rawHtmlSha256=raw_sha,
-            rawHtmlPath=raw_path,
-            robotsIgnored=options.ignore_robots,
-            truncated=truncated,
-        ),
-    )
+    try:
+        return Article(
+            origin=origin,
+            canonicalUrl=canonical,
+            discoveredUrls=discovered[:50],
+            title=title or "",
+            publishedAt=parse_datetime(result.meta.published_at),
+            updatedAt=parse_datetime(result.meta.updated_at),
+            lang=result.meta.lang,
+            authorNames=authors,
+            tags=tags,
+            categories=categories,
+            excerpt=excerpt,
+            html=clean,
+            text=text,
+            media=media,
+            provenance=Provenance(
+                method=result.method,
+                methodChain=result.method_chain,
+                fetchedAt=fetched.fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                finalUrl=fetched.final_url,
+                httpStatus=fetched.status,
+                contentType=fetched.content_type,
+                bytes=len(fetched.body),
+                redirects=list(fetched.redirects),
+                extractorVersion=f"offprint/{version}",
+                rawHtmlSha256=raw_sha,
+                rawHtmlPath=raw_path,
+                robotsIgnored=options.ignore_robots,
+                truncated=truncated,
+            ),
+        )
+    except ValidationError as exc:
+        raise SchemaError(str(exc), url=fetched.final_url) from exc
 
 
 def _clip(

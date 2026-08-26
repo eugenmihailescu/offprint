@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 Method = Literal["rss", "jsonld", "html-article", "trafilatura", "browser"]
 MediaRole = Literal["inline", "feature", "og", "embed"]
-TruncatedField = Literal["title", "excerpt", "text", "authorNames", "tags", "categories"]
+TruncatedField = Literal["title", "excerpt", "text", "authorNames", "tags", "categories", "media"]
 RunResult = Literal["ok", "partial", "empty_queue", "skipped_all", "interrupted"]
 BrowserMode = Literal["off", "fallback", "on"]
 SHA256_HEX = r"^[0-9a-f]{64}$"

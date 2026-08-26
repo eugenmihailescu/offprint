@@ -216,7 +216,8 @@
               "text",
               "authorNames",
               "tags",
-              "categories"
+              "categories",
+              "media"
             ],
             "type": "string"
           },

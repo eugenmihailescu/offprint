@@ -267,6 +267,7 @@ async def extract_site_async(options: SiteOptions) -> RunManifest:
                     extracted_holder["n"] += 1
                     await result_q.put(("ok", article, url, key))
                 except Exception as exc:
+                    prog.break_line()
                     log.exception("worker failed for %s", url)
                     await result_q.put(
                         (
